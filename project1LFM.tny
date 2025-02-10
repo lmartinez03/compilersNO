@@ -1,0 +1,36 @@
+read x;
+read y;
+
+sum := x + y;
+write sum;
+
+diff := x - y;
+write diff;
+
+prod := x * y;
+write prod;
+
+if y = 0 
+then
+	write 0;
+else
+	div := x / y;
+	write div;
+end
+
+if x <= y 
+then
+	sum_range := 0;
+	count := 0;
+	repeat
+		sum_range := sum_range + x;
+		count := count + 1;
+		x := x+1;
+	until x > y;
+	write sum_range;
+
+	avg := sum_range / count;
+	write avg;
+else
+	write 0;
+end
