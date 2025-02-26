@@ -70,6 +70,37 @@ static TokenType reservedLookup (char * s)
   return ID;
 }
 
+void printToken(TokenType token, const char* tokenString)
+{
+  if (TraceScan)
+  {
+    fprintf(listing, "\t%d: ", tokenString);
+  }
+}
+
+/* binary search function*/
+
+TokenType reservedLookupB(char* s)
+{
+  int low = 0;
+  int high = MAXRESERVED - 1;
+  int mid, cmp;
+
+  while (low <= high)
+  {
+    mid = (low + high) / 2;
+    cmp = strcmp(s, reservedWords[mid].str);
+
+    if (cmp == 0)
+      return reservedWords[mid].tok;
+    else if (cmp < 0)
+      high = mid - 1;
+    else
+      low = mid + 1;
+  }
+  return ID;
+}
+
 /****************************************/
 /* the primary function of the scanner  */
 /****************************************/
@@ -81,6 +112,8 @@ TokenType getToken(void)
    int tokenStringIndex = 0;
    /* holds current token to be returned */
    TokenType currentToken;
+   printToken(currentToken, tokenString);
+   return currentToken;
    /* current state - always begins at START */
    StateType state = START;
    /* flag to indicate save to tokenString */
@@ -191,7 +224,7 @@ TokenType getToken(void)
      if (state == DONE)
      { tokenString[tokenStringIndex] = '\0';
        if (currentToken == ID)
-         currentToken = reservedLookup(tokenString);
+         currentToken = reservedLookupB(tokenString);
      }
    }
    if (TraceScan) {

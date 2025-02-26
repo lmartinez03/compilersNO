@@ -2,35 +2,46 @@ read x;
 read y;
 
 sum := x + y;
+sub := x - y;
+mul := x * y;
+
+if y = 0
+then div := 0
+else div := x / y
+;
+
 write sum;
+write sub;
+write mul;
+write div;
 
-diff := x - y;
-write diff;
+rangeSum := 0;
+rangeCount := 0;
 
-prod := x * y;
-write prod;
+if x <= y
+then 
+  temp := 0;
+  start := x;
+  endval := y
+else 
+  temp := 0;
+  start := y;
+  endval := x
+;
 
-if y = 0 
-then
-	write 0;
-else
-	div := x / y;
-	write div;
-end
+curr := start;
+while curr <= endval do 
+  temp := curr;
+  rangeSum := rangeSum + curr;
+  rangeCount := rangeCount + 1;
+  curr := curr + 1
+;
 
-if x <= y 
-then
-	sum_range := 0;
-	count := 0;
-	repeat
-		sum_range := sum_range + x;
-		count := count + 1;
-		x := x+1;
-	until x > y;
-	write sum_range;
+write rangeSum;
 
-	avg := sum_range / count;
-	write avg;
-else
-	write 0;
-end
+if rangeCount = 0
+then rangeAvg := 0
+else rangeAvg := rangeSum / rangeCount
+;
+
+write rangeAvg

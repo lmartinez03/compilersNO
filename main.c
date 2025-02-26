@@ -70,6 +70,15 @@ main( int argc, char * argv[] )
     fprintf(listing,"\nSyntax tree:\n");
     printTree(syntaxTree);
   }
+
+  for (i = 1; i < argc; i++)
+  {
+    if (strcmp(argv[i],"-s") == 0)
+      TraceScan = TRUE;
+    else if (strcmp(argv[i],"-e") == 0)
+      EchoSource = TRUE;
+  }
+
 #if !NO_ANALYZE
   if (! Error)
   { if (TraceAnalyze) fprintf(listing,"\nBuilding Symbol Table...\n");
