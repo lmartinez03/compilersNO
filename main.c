@@ -1,21 +1,21 @@
-/****************************************************/
-/* File: main.c                                     */
-/* Main program for TINY compiler                   */
-/* Compiler Construction: Principles and Practice   */
-/* Kenneth C. Louden                                */
-/****************************************************/
+
+/*************************************************************/
+/*   File: main.c                                            */
+/*   Main program for the C-Minus compiler                   */
+/*************************************************************/
 
 #include "globals.h"
 
 /* set NO_PARSE to TRUE to get a scanner-only compiler */
-#define NO_PARSE FALSE
+#define NO_PARSE TRUE
+
 /* set NO_ANALYZE to TRUE to get a parser-only compiler */
-#define NO_ANALYZE FALSE
+#define NO_ANALYZE TRUE
 
 /* set NO_CODE to TRUE to get a compiler that does not
  * generate code
  */
-#define NO_CODE FALSE
+#define NO_CODE TRUE
 
 #include "util.h"
 #if NO_PARSE
@@ -37,16 +37,17 @@ FILE * listing;
 FILE * code;
 
 /* allocate and set tracing flags */
-int EchoSource = FALSE;
-int TraceScan = FALSE;
+int EchoSource = TRUE;
+int TraceScan = TRUE;
 int TraceParse = FALSE;
 int TraceAnalyze = FALSE;
 int TraceCode = FALSE;
 
+/* error flag to inhibit subsequent passes */
 int Error = FALSE;
 
 main( int argc, char * argv[] )
-{ TreeNode * syntaxTree;
+{ TreePtr syntaxTree;
   char pgm[120]; /* source code file name */
   if (argc != 2)
     { fprintf(stderr,"usage: %s <filename>\n",argv[0]);
@@ -54,38 +55,22 @@ main( int argc, char * argv[] )
     }
   strcpy(pgm,argv[1]) ;
   if (strchr (pgm, '.') == NULL)
-     strcat(pgm,".tny");
+     strcat(pgm,".cm");
   source = fopen(pgm,"r");
   if (source==NULL)
   { fprintf(stderr,"File %s not found\n",pgm);
     exit(1);
   }
   listing = stdout; /* send listing to screen */
-  fprintf(listing,"\nTINY COMPILATION: %s\n",pgm);
+  fprintf(listing,"\n>>>>> C-MINUS COMPILATION: %s\n\n",pgm);
 #if NO_PARSE
   while (getToken()!=ENDFILE);
 #else
   syntaxTree = parse();
-  if (TraceParse) {
-    fprintf(listing,"\nSyntax tree:\n");
-    printTree(syntaxTree);
-  }
-
-  for (i = 1; i < argc; i++)
-  {
-    if (strcmp(argv[i],"-s") == 0)
-      TraceScan = TRUE;
-    else if (strcmp(argv[i],"-e") == 0)
-      EchoSource = TRUE;
-  }
-
 #if !NO_ANALYZE
   if (! Error)
-  { if (TraceAnalyze) fprintf(listing,"\nBuilding Symbol Table...\n");
-    buildSymtab(syntaxTree);
-    if (TraceAnalyze) fprintf(listing,"\nChecking Types...\n");
+  { buildSymtab(syntaxTree);
     typeCheck(syntaxTree);
-    if (TraceAnalyze) fprintf(listing,"\nType Checking Finished\n");
   }
 #if !NO_CODE
   if (! Error)

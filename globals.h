@@ -1,10 +1,9 @@
-/****************************************************/
-/* File: globals.h                                  */
-/* Global types and vars for TINY compiler          */
-/* must come before other include files             */
-/* Compiler Construction: Principles and Practice   */
-/* Kenneth C. Louden                                */
-/****************************************************/
+/*************************************************************/
+/*   File: globals.h                                         */
+/*   Global types and vars for C-Minus compiler              */
+/*   must come before other include files                    */
+/*************************************************************/
+
 
 #ifndef _GLOBALS_H_
 #define _GLOBALS_H_
@@ -23,17 +22,18 @@
 #endif
 
 /* MAXRESERVED = the number of reserved words */
-#define MAXRESERVED 8
+#define MAXRESERVED 6
 
 typedef enum 
     /* book-keeping tokens */
    {ENDFILE,ERROR,
     /* reserved words */
-    IF,THEN,ELSE,END,REPEAT,UNTIL,READ,WRITE,
+    ELSE,IF,INT,RETURN,VOID,WHILE,
     /* multicharacter tokens */
     ID,NUM,
     /* special symbols */
-    ASSIGN,EQ,LT,PLUS,MINUS,TIMES,OVER,LPAREN,RPAREN,SEMI
+    PLUS,MINUS,TIMES,OVER,LT,LE,GT,GE,EQ,NE,ASSIGN,
+    SEMI,COMMA,LPAREN,RPAREN,LBRACKET,RBRACKET,LCURLY,RCURLY
    } TokenType;
 
 extern FILE* source; /* source code text file */
@@ -43,29 +43,44 @@ extern FILE* code; /* code text file for TM simulator */
 extern int lineno; /* source line number for listing */
 
 /**************************************************/
-/***********   Syntax tree for parsing ************/
+/********   C- Syntax tree for parsing ************/
 /**************************************************/
 
-typedef enum {StmtK,ExpK} NodeKind;
-typedef enum {IfK,RepeatK,AssignK,ReadK,WriteK} StmtKind;
-typedef enum {OpK,ConstK,IdK} ExpKind;
+typedef enum {StmtK,ExpK,DeclK} NodeKind;
+typedef enum {IfK,ReturnK,WhileK,CmpdK} StmtKind;
+typedef enum {OpK,ConstK,IdK,CallK,SubsK} ExpKind;
+typedef enum {VarK,FunK,ParamK} DeclKind;
 
-/* ExpType is used for type checking */
-typedef enum {Void,Integer,Boolean} ExpType;
+/* types */
+typedef enum { IntType,ArrayType,IntFuncType,VoidFuncType,
+               VoidType } CMType;
 
 #define MAXCHILDREN 3
 
+typedef struct treeNode * TreePtr;
+
 typedef struct treeNode
-   { struct treeNode * child[MAXCHILDREN];
-     struct treeNode * sibling;
-     int lineno;
-     NodeKind nodekind;
-     union { StmtKind stmt; ExpKind exp;} kind;
-     union { TokenType op;
-             int val;
-             char * name; } attr;
-     ExpType type; /* for type checking of exps */
-   } TreeNode;
+{ TreePtr child[MAXCHILDREN];
+  TreePtr sibling;
+  int lineno;
+  NodeKind nodekind;
+  union { StmtKind stmt;
+          ExpKind exp;
+          DeclKind decl; } kind;
+  union { TokenType op;
+          int val;
+          char * name; } attr;
+/* additional C- attributes for declarations */
+  TokenType type; /* int or void for decls */
+  int size; /* for arrays */
+  int nestLevel; /* for semantic analysis */
+  int funaddr; /* for code generation of function calls -
+                  TM location of function entry */
+  int offset; /* for code generation of variable access */
+/* additional C- attributes for expresssions */
+  TreePtr declptr; /* for id's, points to declaration */
+  CMType datatype; /* for type checking */
+} TreeNode;
 
 /**************************************************/
 /***********   Flags for tracing       ************/
@@ -89,8 +104,9 @@ extern int TraceScan;
  */
 extern int TraceParse;
 
-/* TraceAnalyze = TRUE causes symbol table inserts
- * and lookups to be reported to the listing file
+/* TraceAnalyze = TRUE causes symbol table and
+ * type checking information to be printed to
+ * the listing file
  */
 extern int TraceAnalyze;
 
