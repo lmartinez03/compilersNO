@@ -1,9 +1,8 @@
-/****************************************************/
-/* File: parse.c                                    */
-/* The parser implementation for the TINY compiler  */
-/* Compiler Construction: Principles and Practice   */
-/* Kenneth C. Louden                                */
-/****************************************************/
+/*************************************************************/
+/*   File: parse.c                                           */
+/*   The parser implementation for the C-Minus compiler      */
+/*                                                           */
+/*************************************************************/
 
 #include "globals.h"
 #include "util.h"
@@ -13,203 +12,453 @@
 static TokenType token; /* holds current token */
 
 /* function prototypes for recursive calls */
-static TreeNode * stmt_sequence(void);
-static TreeNode * statement(void);
-static TreeNode * if_stmt(void);
-static TreeNode * repeat_stmt(void);
-static TreeNode * assign_stmt(void);
-static TreeNode * read_stmt(void);
-static TreeNode * write_stmt(void);
-static TreeNode * exp(void);
-static TreeNode * simple_exp(void);
-static TreeNode * term(void);
-static TreeNode * factor(void);
+static TreePtr declaration_list(void);
+static TreePtr declaration(void);
+static TreePtr var_declaration(void);
+static TreePtr local_declarations(void);
+static TreePtr param_list(void);
+static TreePtr param(int);
+static TreePtr compound_stmt(void);
+static TreePtr statement_list(void);
+static TreePtr statement(void);
+static TreePtr selection_stmt(void);
+static TreePtr iteration_stmt(void);
+static TreePtr return_stmt(void);
+static TreePtr expression(void);
+static TreePtr simple_expression(void);
+static TreePtr additive_expression(void);
+static TreePtr term(void);
+static TreePtr factor(void);
+static TreePtr arg_list(void);
 
 static void syntaxError(char * message)
-{ fprintf(listing,"\n>>> ");
+{ fprintf(listing,">>> ");
   fprintf(listing,"Syntax error at line %d: %s",lineno,message);
   Error = TRUE;
 }
 
-static void match(TokenType expected)
-{ if (token == expected) token = getToken();
-  else {
-    syntaxError("unexpected token -> ");
-    printToken(token,tokenString);
-    fprintf(listing,"      ");
-  }
+//**************
+//(1) add the match function here to get next token and print error message if needed
+
+static int isType( TokenType token)
+{ return (token==VOID)||(token==INT);
 }
 
-TreeNode * stmt_sequence(void)
-{ TreeNode * t = statement();
-  TreeNode * p = t;
-  while ((token!=ENDFILE) && (token!=END) &&
-         (token!=ELSE) && (token!=UNTIL))
-  { TreeNode * q;
-    match(SEMI);
-    q = statement();
-    if (q!=NULL) {
-      if (t==NULL) t = p = q;
-      else /* now p cannot be NULL either */
-      { p->sibling = q;
-        p = q;
-      }
+TreePtr declaration_list()
+{ TreePtr t,p;
+  p = t = declaration();
+  while (token != ENDFILE)
+    if (p != NULL)
+    { p->sibling = declaration();
+      if (p->sibling != NULL) p = p->sibling;
     }
-  }
-  return t;
-}
-
-TreeNode * statement(void)
-{ TreeNode * t = NULL;
-  switch (token) {
-    case IF : t = if_stmt(); break;
-    case REPEAT : t = repeat_stmt(); break;
-    case ID : t = assign_stmt(); break;
-    case READ : t = read_stmt(); break;
-    case WRITE : t = write_stmt(); break;
-    default : syntaxError("unexpected token -> ");
-              printToken(token,tokenString);
-              token = getToken();
-              break;
-  } /* end case */
-  return t;
-}
-
-TreeNode * if_stmt(void)
-{ TreeNode * t = newStmtNode(IfK);
-  match(IF);
-  if (t!=NULL) t->child[0] = exp();
-  match(THEN);
-  if (t!=NULL) t->child[1] = stmt_sequence();
-  if (token==ELSE) {
-    match(ELSE);
-    if (t!=NULL) t->child[2] = stmt_sequence();
-  }
-  match(END);
-  return t;
-}
-
-TreeNode * repeat_stmt(void)
-{ TreeNode * t = newStmtNode(RepeatK);
-  match(REPEAT);
-  if (t!=NULL) t->child[0] = stmt_sequence();
-  match(UNTIL);
-  if (t!=NULL) t->child[1] = exp();
-  return t;
-}
-
-TreeNode * assign_stmt(void)
-{ TreeNode * t = newStmtNode(AssignK);
-  if ((t!=NULL) && (token==ID))
-    t->attr.name = copyString(tokenString);
-  match(ID);
-  match(ASSIGN);
-  if (t!=NULL) t->child[0] = exp();
-  return t;
-}
-
-TreeNode * read_stmt(void)
-{ TreeNode * t = newStmtNode(ReadK);
-  match(READ);
-  if ((t!=NULL) && (token==ID))
-    t->attr.name = copyString(tokenString);
-  match(ID);
-  return t;
-}
-
-TreeNode * write_stmt(void)
-{ TreeNode * t = newStmtNode(WriteK);
-  match(WRITE);
-  if (t!=NULL) t->child[0] = exp();
-  return t;
-}
-
-TreeNode * exp(void)
-{ TreeNode * t = simple_exp();
-  if ((token==LT)||(token==EQ)) {
-    TreeNode * p = newExpNode(OpK);
-    if (p!=NULL) {
-      p->child[0] = t;
-      p->attr.op = token;
-      t = p;
+    else
+    { p = declaration();
+      if (t == NULL) t = p;
     }
+  return t;
+} /* declaration_list */
+
+TreePtr declaration(void)
+{ TreePtr t = NULL,p;
+  TokenType savedType;
+  char* savedName;
+  if (isType(token))
+  { savedType = token;
     match(token);
-    if (t!=NULL)
-      t->child[1] = simple_exp();
   }
-  return t;
-}
-
-TreeNode * simple_exp(void)
-{ TreeNode * t = term();
-  while ((token==PLUS)||(token==MINUS))
-  { TreeNode * p = newExpNode(OpK);
-    if (p!=NULL) {
-      p->child[0] = t;
-      p->attr.op = token;
-      t = p;
-      match(token);
-      t->child[1] = term();
-    }
+  else
+    syntaxError("type expected\n");
+  if (token == ID)
+  { savedName = copyString(tokenString);
+    match(ID);
   }
-  return t;
-}
-
-TreeNode * term(void)
-{ TreeNode * t = factor();
-  while ((token==TIMES)||(token==OVER))
-  { TreeNode * p = newExpNode(OpK);
-    if (p!=NULL) {
-      p->child[0] = t;
-      p->attr.op = token;
-      t = p;
-      match(token);
-      p->child[1] = factor();
-    }
-  }
-  return t;
-}
-
-TreeNode * factor(void)
-{ TreeNode * t = NULL;
-  switch (token) {
-    case NUM :
-      t = newExpNode(ConstK);
-      if ((t!=NULL) && (token==NUM))
-        t->attr.val = atoi(tokenString);
-      match(NUM);
+  else
+    syntaxError("Identifier expected\n");
+  switch (token)
+  { case SEMI: /* simple variable declaration */
+      t = newDeclNode(VarK);
+      if (t!=NULL)
+      { t->attr.name = savedName;
+        t->type = savedType;
+      }
+      match(SEMI);
       break;
-    case ID :
-      t = newExpNode(IdK);
-      if ((t!=NULL) && (token==ID))
-        t->attr.name = copyString(tokenString);
-      match(ID);
+    case LBRACKET: /* array variable declaration */
+      t = newDeclNode(VarK);
+      if (t!=NULL)
+      { t->attr.name = savedName;
+        t->type = savedType;
+      }
+      match(LBRACKET);
+      if (token == NUM)
+      { int size = atoi(tokenString);
+        if (size <= 0) syntaxError("array size must be > 0\n");
+        /* use nonzero size later to test for arrays */
+        else if (t!=NULL) t->size = size;
+        match(NUM);
+      }
+      else syntaxError("Number expected\n");
+      match(RBRACKET);
+      match(SEMI);
       break;
-    case LPAREN :
+    case LPAREN: /* function declaration */
+      t = newDeclNode(FunK);
+      if (t!=NULL)
+      { t->attr.name = savedName;
+        t->type = savedType;
+      }
       match(LPAREN);
-      t = exp();
+      p = param_list(); /* VOID lookahead problem means param_list
+                           must handle both cases */
+      if (t!=NULL) t->child[0] = p;
       match(RPAREN);
+      p = compound_stmt();
+      if (t!=NULL) t->child[1] = p;
       break;
     default:
       syntaxError("unexpected token -> ");
       printToken(token,tokenString);
       token = getToken();
       break;
-    }
+  }
   return t;
+} /* declaration */
+
+TreePtr var_declaration(void)
+{ TreePtr t = NULL;
+  TokenType savedType;
+  char* savedName;
+  if (isType(token))
+  { savedType = token;
+    match(token);
+  }
+  else
+  { syntaxError("type expected\n");
+    return NULL;
+  }
+  if (token == ID)
+  { savedName = copyString(tokenString);
+    match(ID);
+  }
+  else
+  { syntaxError("Identifier expected\n");
+    return NULL;
+  }
+  t = newDeclNode(VarK);
+  if (t!=NULL)
+  { t->attr.name = savedName;
+    t->type = savedType;
+  }
+  if (token==LBRACKET)
+  {  match(LBRACKET);
+     if (token == NUM)
+     { int size = atoi(tokenString);
+       if (size <= 0) syntaxError("array size must be > 0\n");
+       /* use nonzero size later to test for arrays */
+       else if (t!=NULL) t->size = size;
+       match(NUM);
+     }
+     else syntaxError("Number expected\n");
+     match(RBRACKET);
+  }
+  match(SEMI);
+  return t;
+} /* var_declaration */
+
+TreePtr local_declarations(void)
+{ TreePtr t=NULL,p=t;
+  if (isType(token))
+  { p = t = var_declaration();
+    while (isType(token))
+      if (p != NULL)
+      { p->sibling = var_declaration();
+        if (p->sibling != NULL) p = p->sibling;
+      }
+      else
+      { p = var_declaration();
+        if (t == NULL) t = p;
+      }
+  }
+  return t;
+} /* local_declarations */
+
+TreePtr param_list(void)
+{ TreePtr t,p,dp;
+  p = t = param(TRUE); /* first time */
+  while (token == COMMA)
+  { match(COMMA);
+    dp = param(FALSE); /* not first time */
+    if (p != NULL && dp != NULL) 
+    { p->sibling = dp;
+      p = dp;
+    }
+  }
+  return t;
+} /* param_list */
+
+TreePtr param(int first_time)
+{ TreePtr t = NULL;
+  TokenType savedType;
+  char* savedName;
+  if (isType(token))
+  { savedType = token;
+    match(token);
+  }
+  else
+  { syntaxError("type expected\n");
+    return NULL;
+  }
+  if (token == ID)
+  { savedName = copyString(tokenString);
+    match(ID);
+  }
+  else if ((token == RPAREN) && (savedType == VOID) && first_time)
+  /* empty paramlist case */
+  { return NULL;
+  }
+  else
+  { syntaxError("Identifier expected\n");
+    return NULL;
+  }
+  t = newDeclNode(ParamK);
+  if (t!=NULL)
+  { t->attr.name = savedName;
+    t->type = savedType;
+  }
+  if (token == LBRACKET)
+  { match(LBRACKET);
+    /* flag for array parameter */
+    if (t!=NULL) t->size = -1;
+    match(RBRACKET);
+  }
+  return t;
+} /* param */
+
+TreePtr compound_stmt(void)
+{ TreePtr t,p,q;
+  match(LCURLY);
+  t = newStmtNode(CmpdK);
+  p = local_declarations();
+  q = statement_list();
+  if (t != NULL)
+  { t->child[0] = p;
+    t->child[1] = q;
+  }
+  match(RCURLY);
+  return t;
+} /* compound_stmt */
+
+TreePtr statement_list(void)
+{ TreePtr t = NULL,p;
+  if (token != RCURLY)
+  { p = t = statement();
+    while ((token != RCURLY) && (token != ENDFILE))
+    { if (p != NULL)
+      { p->sibling = statement();
+        if (p->sibling != NULL) p = p->sibling;
+      }
+      else
+      { p = statement();
+        if (t == NULL) t = p;
+      }
+    }
+  }
+  return t;
+} /* statement_list */
+
+TreePtr statement(void)
+{ TreePtr t = NULL;
+  switch (token)
+  { case SEMI:
+    /* empty expression statement */
+      match(SEMI);
+      break;
+    case ID:
+    /* expression_stmt with possible assignment */
+      t = expression();
+      match(SEMI);
+      break;
+    case LPAREN:
+    case NUM:
+    /* expression_stmt without assignment */
+      t = simple_expression();
+      match(SEMI);
+      break;
+    case LCURLY:
+      t = compound_stmt();
+      break;
+    case IF:
+      t = selection_stmt();
+      break;
+    case WHILE:
+      t = iteration_stmt();
+      break;
+    case RETURN:
+      t = return_stmt();
+      break;
+    default:
+      syntaxError("unexpected token -> ");
+      printToken(token,tokenString);
+      token = getToken();
+      break;
+  }
+  return t;
+} /* statememt */
+
+//**************************************
+//(2) complete the function for selection_stmt(), which follows the grammar rule of line 15 on p492 of Louden textbook
+TreePtr selection_stmt(void){
+
+
+
+} /* selection_stmt */
+
+//(3) complete the function for iteration_stmt(), which follows the grammar rule of line 16 on p492 of the Louden textbook
+TreePtr iteration_stmt(void)
+{ 
+
+
+} /* iteration_stmt */
+
+//(4) complete the function for return_stmt(), which follows the grammar rul of line 17 on p492 of the Louden textbook
+TreePtr return_stmt(void)
+{ 
+
+} /* return_stmt */
+
+TreePtr expression(void)
+{ TreePtr t,p,q;
+  /* should be var if assignment is coming */
+  t = simple_expression();
+  if (token == ASSIGN)
+  { match(ASSIGN);
+    p = expression();
+    /* make sure lhs of assignment really is a var */
+    if ((t != NULL) && (t->kind.exp != IdK) && (t->kind.exp != SubsK))
+      syntaxError("illegal left hand side of assignment\n");
+    q = newExpNode(OpK);
+    if (q != NULL)
+    { q->attr.op = ASSIGN;
+      q->child[0] = t;
+      q->child[1] = p;
+      t = q;
+    }
+  }
+  return t;
+} /* expression */
+
+TreePtr simple_expression(void)
+{ TreePtr t,p,q;
+  t = additive_expression();
+  if ((token == LT) || (token == LE) || (token == GT)
+       || (token == GE) || (token == EQ) || (token == NE))
+  {  p = newExpNode(OpK);
+     p->attr.op = token;
+     match(token);
+     q = additive_expression();
+     if (p != NULL)
+     { p->child[0] = t;
+       p->child[1] = q;
+       t = p;
+     }
+  }
+  return t;
+} /* simple_expression */
+
+//**********************************************
+//(5) complete the function for additive-expression, which follows the grammar rule of line 20 on p492 of Louden textbook
+TreePtr additive_expression(void){
+
+
+ 
+} /* additive_expression */
+
+//**********************************************
+//(6) complete the function for term(), which follows the grammar rule of line 24 on p492 of Louden textbook
+
+TreePtr term(void){
+
+
+ 
+} /* term */
+
+TreePtr factor(void)
+{ TreePtr t = NULL,p;
+  char* savedName;
+  switch (token)
+  { case LPAREN:
+      match(LPAREN);
+      t = expression();
+      match(RPAREN);
+      break;
+    case ID:
+      savedName = copyString(tokenString);
+      match(ID);
+      if (token == LPAREN)
+      { match(LPAREN);
+        t = newExpNode(CallK);
+        if (t != NULL) t->attr.name = savedName;
+        if (token != RPAREN)
+        { p = arg_list();
+          if (t != NULL) t->child[0] = p;
+        }
+        match(RPAREN);
+      }
+      else if (token == LBRACKET)
+      { match(LBRACKET);
+        t = newExpNode(SubsK);
+        if (t != NULL) t->attr.name = savedName;
+        p = expression();
+        if (t != NULL) t->child[0] = p;
+        match(RBRACKET);
+      }
+      else
+      { t = newExpNode(IdK);
+        if (t != NULL) t->attr.name = savedName;
+      }
+      break;
+    case NUM :
+      t = newExpNode(ConstK);
+      t->attr.val = atoi(tokenString);
+      match(NUM);
+      break;
+    default:
+      syntaxError("unexpected token -> ");
+      printToken(token,tokenString);
+      token = getToken();
+      break;
+  }
+  return t;
+} /* factor */
+
+TreePtr arg_list(void)
+{ TreePtr t,p;
+  p = t = expression();
+  while (token == COMMA)
+  { match(COMMA);
+    if (p != NULL)
+    { p->sibling = expression();
+      if (p->sibling != NULL) p = p->sibling;
+    }
+    else
+    { p = expression();
+      if (t == NULL) t = p;
+    }
+  }
+  return t;
+} /* arg_list */
+
+
+TreePtr parse(void)
+{ TreePtr syntaxTree;
+  token = getToken();
+  syntaxTree = declaration_list();
+  if (token != ENDFILE) syntaxError("end of file expected\n");
+  if (TraceParse)
+  { fprintf(listing,"\nSyntax tree:\n");
+    printTree(syntaxTree);
+  }
+  return syntaxTree;
 }
 
-/****************************************/
-/* the primary function of the parser   */
-/****************************************/
-/* Function parse returns the newly 
- * constructed syntax tree
- */
-TreeNode * parse(void)
-{ TreeNode * t;
-  token = getToken();
-  t = stmt_sequence();
-  if (token!=ENDFILE)
-    syntaxError("Code ends before file\n");
-  return t;
-}
