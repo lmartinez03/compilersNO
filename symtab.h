@@ -1,30 +1,36 @@
-/****************************************************/
-/* File: symtab.h                                   */
-/* Symbol table interface for the TINY compiler     */
-/* (allows only one symbol table)                   */
-/* Compiler Construction: Principles and Practice   */
-/* Kenneth C. Louden                                */
-/****************************************************/
 
+/*************************************************************/
+/*   File: symtab.h                                          */
+/*   Symbol table interface for the C-Minus compiler         */
+/*   (allows only one symbol table)                          */
+/*********************************************************** */
+
+
+#include "globals.h"
 #ifndef _SYMTAB_H_
 #define _SYMTAB_H_
 
-/* Procedure st_insert inserts line numbers and
- * memory locations into the symbol table
- * loc = memory location is inserted only the
- * first time, otherwise ignored
- */
-void st_insert( char * name, int lineno, int loc );
 
-/* Function st_lookup returns the memory 
- * location of a variable or -1 if not found
+/* Procedure st_enterScope starts a new scope
+ * returns 0 if memory allocation fails, else 1
  */
-int st_lookup ( char * name );
+int st_enterScope(void);
 
-/* Procedure printSymTab prints a formatted 
- * listing of the symbol table contents 
- * to the listing file
+/* Procedure st_exitScope removes all declarations
+ * in the current scope
  */
-void printSymTab(FILE * listing);
+void st_exitScope(void);
+
+/* Procedure st_insert inserts def nodes from
+ * from the syntax tree into the symbol table
+ * returns 0 if memory allocation fails, else 1
+ */
+int st_insert( TreePtr );
+
+/* Function st_lookup returns the defnode
+ * of a variable, parameter, or function,
+ * or NULL if not found
+ */
+TreePtr st_lookup ( char * name );
 
 #endif

@@ -1,19 +1,16 @@
-/****************************************************/
-/* File: symtab.c                                   */
-/* Symbol table implementation for the TINY compiler*/
-/* (allows only one symbol table)                   */
-/* Symbol table is implemented as a chained         */
-/* hash table                                       */
-/* Compiler Construction: Principles and Practice   */
-/* Kenneth C. Louden                                */
-/****************************************************/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+/*************************************************************/
+/*   File: symtab.c                                          */
+/*   Symbol table implementation for the C-Minus compiler    */
+/*   (allows only one symbol table)                          */
+/*                                                           */
+/*   This file needs to be completed as part of your project4*/
+/*************************************************************/
+
 #include "symtab.h"
 
-/* SIZE is the size of the hash table */
+
+/* SIZE is the size of each hash table */
 #define SIZE 211
 
 /* SHIFT is the power of two used as multiplier
@@ -23,100 +20,84 @@
 /* the hash function */
 static int hash ( char * key )
 { int temp = 0;
-  int i = 0;
-  while (key[i] != '\0')
-  { temp = ((temp << SHIFT) + key[i]) % SIZE;
-    ++i;
-  }
+    //(1): add code here to complete the implementation of the hash function
+
   return temp;
 }
 
-/* the list of line numbers of the source 
- * code in which a variable is referenced
- */
-typedef struct LineListRec
-   { int lineno;
-     struct LineListRec * next;
-   } * LineList;
-
 /* The record in the bucket lists for
- * each variable, including name, 
- * assigned memory location, and
- * the list of line numbers in which
- * it appears in the source code
+ * each defnode
  */
 typedef struct BucketListRec
-   { char * name;
-     LineList lines;
-     int memloc ; /* memory location for variable */
+   { TreePtr defnode;
      struct BucketListRec * next;
    } * BucketList;
 
-/* the hash table */
-static BucketList hashTable[SIZE];
+/* each hash table */
+typedef BucketList Table[SIZE];
 
-/* Procedure st_insert inserts line numbers and
- * memory locations into the symbol table
- * loc = memory location is inserted only the
- * first time, otherwise ignored
- */
-void st_insert( char * name, int lineno, int loc )
-{ int h = hash(name);
-  BucketList l =  hashTable[h];
-  while ((l != NULL) && (strcmp(name,l->name) != 0))
-    l = l->next;
-  if (l == NULL) /* variable not yet in table */
-  { l = (BucketList) malloc(sizeof(struct BucketListRec));
-    l->name = name;
-    l->lines = (LineList) malloc(sizeof(struct LineListRec));
-    l->lines->lineno = lineno;
-    l->memloc = loc;
-    l->lines->next = NULL;
-    l->next = hashTable[h];
-    hashTable[h] = l; }
-  else /* found in table, so just add line number */
-  { LineList t = l->lines;
-    while (t->next != NULL) t = t->next;
-    t->next = (LineList) malloc(sizeof(struct LineListRec));
-    t->next->lineno = lineno;
-    t->next->next = NULL;
-  }
-} /* st_insert */
+/* the linked list of tables */
+typedef struct TableListRec
+   { Table t;
+     struct TableListRec * next;
+   } * TableList;
 
-/* Function st_lookup returns the memory 
- * location of a variable or -1 if not found
+/* The actual symbol table */
+static TableList symTab = NULL; /* starts out empty */
+
+/* Procedure st_enterScope starts a new scope
+ * returns 0 if memory allocation fails, else 1
  */
-int st_lookup ( char * name )
-{ int h = hash(name);
-  BucketList l =  hashTable[h];
-  while ((l != NULL) && (strcmp(name,l->name) != 0))
-    l = l->next;
-  if (l == NULL) return -1;
-  else return l->memloc;
+int st_enterScope(void)
+{ TableList tempTab = (TableList) malloc(sizeof(struct TableListRec));
+  int i;
+  if (!tempTab) return 0; /* memory allocation error */
+  for (i=0;i<SIZE;i++) tempTab->t[i] = NULL;
+  tempTab->next = symTab;
+  symTab = tempTab;
+  return 1;
+} /* st_enterScope */
+
+/* Procedure st_exitScope removes all declarations
+ * in the current scope
+ */
+void st_exitScope(void)
+{ 
+
+	//(2): Add code to handle the case when a scope needs to be deleted
 }
 
-/* Procedure printSymTab prints a formatted 
- * listing of the symbol table contents 
- * to the listing file
+/* Procedure st_insert inserts def nodes from
+ * from the syntax tree into the symbol table
+ * returns 0 if memory allocation fails, else 1
  */
-void printSymTab(FILE * listing)
-{ int i;
-  fprintf(listing,"Variable Name  Location   Line Numbers\n");
-  fprintf(listing,"-------------  --------   ------------\n");
-  for (i=0;i<SIZE;++i)
-  { if (hashTable[i] != NULL)
-    { BucketList l = hashTable[i];
-      while (l != NULL)
-      { LineList t = l->lines;
-        fprintf(listing,"%-14s ",l->name);
-        fprintf(listing,"%-8d  ",l->memloc);
-        while (t != NULL)
-        { fprintf(listing,"%4d ",t->lineno);
-          t = t->next;
-        }
-        fprintf(listing,"\n");
-        l = l->next;
-      }
-    }
-  }
-} /* printSymTab */
+int st_insert( TreePtr t)
+{ int h = hash(t->attr.name);
+  BucketList l;
+  if (!symTab) st_enterScope();
+  if (!symTab) return 0; /* memory allocation error */
+  l = (BucketList) malloc(sizeof(struct BucketListRec));
+  if (!l) return 0; /* memory allocation error */
+  l->defnode = t;
+  l->next = symTab->t[h];
+  symTab->t[h] = l;
+  return 1;
+}
+
+TreePtr st_lookup ( char * name )
+{ 
+
+  //(3) Add code to handle the case of lookup process
+  
+  //3-1 calc the hash value of the name 
+  //3-2 create a temp variable (TableList) and use it to scan through the whole table looking for a match 
+  //3-3 while loop to go through the table
+  //    for each iteration of the loop
+  //       find each hash table content - should be a BucketList
+  //       compare the name of the content with the name looking for (defnode->arrt.name)
+  //       if name is found, return the defnode of the current BucketList
+  //               else move on to the next table content
+  //3-4 return NULL if not found; 
+
+}  /* st_lookup */
+
